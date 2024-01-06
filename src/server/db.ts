@@ -1,16 +1,57 @@
-import { PrismaClient } from "@prisma/client";
+import { logger } from "@/lib/log";
+import { PrismaClient } from "@prisma/client/edge";
+import { withAccelerate } from "@prisma/extension-accelerate";
 
-import { env } from "@/env";
+const log = logger.child({ module: "prisma" });
+// Learn more about instantiating PrismaClient in Next.js here: https://www.prisma.io/docs/data-platform/accelerate/getting-started
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log:
-      env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+const prismaClientSingleton = () => {
+  const prisma = new PrismaClient({
+    log: [
+      {
+        emit: "event",
+        level: "query",
+      },
+      {
+        emit: "event",
+        level: "error",
+      },
+      {
+        emit: "event",
+        level: "info",
+      },
+      {
+        emit: "event",
+        level: "warn",
+      },
+    ],
+  });
+  prisma.$on("query", (e) => {
+    log.debug(e);
   });
 
-if (env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+  prisma.$on("error", (e) => {
+    log.error(e);
+  });
+
+  prisma.$on("info", (e) => {
+    log.info(e);
+  });
+
+  prisma.$on("warn", (e) => {
+    log.warn(e);
+  });
+  return prisma.$extends(withAccelerate());
+};
+
+type PrismaClientSingleton = ReturnType<typeof prismaClientSingleton>;
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClientSingleton | undefined;
+};
+
+const db = globalForPrisma.prisma ?? prismaClientSingleton();
+
+export { db };
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
