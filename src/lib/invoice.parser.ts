@@ -8,6 +8,9 @@ const parseInvoice = (fileName: string, invoiceStr: Buffer): InvoiceFile => {
       hex: false,
       eNotation: false,
     },
+    isArray(tagName) {
+      return tagName === "detalle" || tagName === "impuesto";
+    },
   });
   // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
   const xml = parser.parse(invoiceStr);
@@ -15,7 +18,7 @@ const parseInvoice = (fileName: string, invoiceStr: Buffer): InvoiceFile => {
   const content: InvoiceXML = parser.parse(
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
     xml.autorizacion.comprobante.__cdata,
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   ).factura as InvoiceXML;
   return { content, fileName };
 };
@@ -33,7 +36,7 @@ export interface InvoiceXML {
 }
 
 interface Detalles {
-  detalle: Detalle[] | Detalle;
+  detalle: Detalle[];
 }
 
 export interface Detalle {
@@ -48,7 +51,7 @@ export interface Detalle {
 }
 
 interface Impuestos {
-  impuesto: Impuesto;
+  impuesto: Impuesto [];
 }
 
 interface Impuesto {

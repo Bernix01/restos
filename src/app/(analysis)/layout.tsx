@@ -3,10 +3,12 @@ import { Search } from '@/app/_components/search';
 import TeamSwitcher from '@/app/_components/team-switcher';
 import { UserNav } from '@/app/_components/user-nav';
 import Image from 'next/image';
+import { TooltipProvider } from '../_components/ui/tooltip';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+    <TooltipProvider>
       <div className="md:hidden">
         <Image
           src="/examples/dashboard-light.png"
@@ -34,6 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </header>
         {children}
       </div>
+      </TooltipProvider>
     </>
   );
 }

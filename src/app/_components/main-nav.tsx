@@ -6,11 +6,11 @@ import { usePathname } from 'next/navigation';
 import { logger } from '@/lib/log';
 
 const routes: { name: string; href: string }[] = [
-  { name: 'Overview', href: '/app/dashboard' },
-  { name: 'Invoices', href: '/app/invoices' },
-  { name: 'Customers', href: '/app/customers' },
-  { name: 'Products', href: '/app/products' },
-  { name: 'Settings', href: '/app/settings' }
+  { name: 'Overview', href: '/dashboard' },
+  { name: 'Invoices', href: '/invoices' },
+  { name: 'Customers', href: '/customers' },
+  { name: 'Products', href: '/products' },
+  { name: 'Settings', href: '/settings' }
 ];
 
 export function MainNav({

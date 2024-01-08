@@ -1,8 +1,7 @@
 import { CalendarDateRangePicker } from "@/app/_components/date-range-picker";
 import { db } from "@/server/db";
 import type { Metadata } from "next";
-import { Button } from "@/app/_components/ui/button";
-import { redirect } from "next/navigation";
+import ImportInvoiceButton from "@/app/_components/import-invoice-btn";
 
 export const metadata: Metadata = {
   title: "Invoices",
@@ -19,7 +18,7 @@ const InvoicesPage: React.FC = async () => {
           <h2 className="text-3xl font-bold tracking-tight">Invoices</h2>
           <div className="flex items-center space-x-2">
             <CalendarDateRangePicker />
-            <Button onClick={redirect("/app/invoices/import")}>Import</Button>
+            <ImportInvoiceButton />
           </div>
         </section>
         {invoices.map((invoice) => (
