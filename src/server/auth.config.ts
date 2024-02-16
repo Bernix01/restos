@@ -2,10 +2,8 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { db } from "@/server/db";
 import { logger } from "@/lib/log";
 import type { OpenIDTokenEndpointResponse } from "oauth4webapi";
-import { type TokenSet } from "@auth/core/types";
 
 import type { DefaultSession, NextAuthConfig } from "next-auth";
-import { env } from "@/env";
 import type { PrismaClient } from "@prisma/client/edge";
 
 const log = logger.child({ module: "auth" });

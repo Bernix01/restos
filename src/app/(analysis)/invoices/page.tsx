@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 };
 
 const InvoicesPage: React.FC = async () => {
-  const invoices = await db.invoice.findMany();
+  // const invoices = await db.invoice.findMany();
 
   return (
     <>
@@ -21,12 +21,12 @@ const InvoicesPage: React.FC = async () => {
             <ImportInvoiceButton />
           </div>
         </section>
-        {invoices.map((invoice) => (
+        {/* {invoices.map((invoice) => (
           <article key={invoice.id}>
             <h3>{invoice.invoiceDate.toLocaleString()}</h3>
             <p>${invoice.totalAmount.toString()}</p>
           </article>
-        ))}
+        ))} */}
       </main>
     </>
   );

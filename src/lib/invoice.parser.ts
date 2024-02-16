@@ -1,6 +1,20 @@
 import { XMLParser } from "fast-xml-parser";
+import { type CreditNoteXML, type InvoiceXML } from "./invoice.parser.types";
 
-const parseInvoice = (fileName: string, invoiceStr: Buffer): InvoiceFile => {
+const isRuc = (ruc: string): boolean => {
+  const rucRegex = /^[0-9]{13}$/;
+  return rucRegex.test(ruc);
+}
+
+export interface ParseError {
+  fileName: string;
+  error: string;
+}
+
+const parseTributaryFile = (
+  fileName: string,
+  invoiceStr: Buffer,
+): [InvoiceFile?, CreditNoteFile?, ParseError?] => {
   const parser = new XMLParser({
     cdataPropName: "__cdata",
     numberParseOptions: {
@@ -9,116 +23,94 @@ const parseInvoice = (fileName: string, invoiceStr: Buffer): InvoiceFile => {
       eNotation: false,
     },
     isArray(tagName) {
-      return tagName === "detalle" || tagName === "impuesto";
+      return (
+        tagName === "detalle" ||
+        tagName === "impuesto" ||
+        tagName === "pago" ||
+        tagName === "totalImpuesto" ||
+        tagName === "campoAdicional" ||
+        tagName === "detAdicional"
+      );
+    },
+    parseTagValue: true,
+    tagValueProcessor(tagName, tagValue) {
+      if (
+        tagName === "propina" ||
+        tagName === "contribuyenteEspecial" ||
+        tagName === "secuencial" ||
+        tagName === "ruc" ||
+        tagName === "estab" ||
+        tagName === "ptoEmi" ||
+        tagName === "formaPago" ||
+        tagName === "codigoPrincipal" ||
+        tagName === "codigoAuxiliar"
+      ) {
+        return `${tagValue}`;
+      }
+      return tagValue;
     },
   });
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const xml = parser.parse(invoiceStr);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const content: InvoiceXML = parser.parse(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access
-    xml.autorizacion.comprobante.__cdata,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-  ).factura as InvoiceXML;
-  return { content, fileName };
+
+  const xml: XmlData | undefined = parser.parse(invoiceStr) as XmlData | undefined;
+  if (!xml) {
+    return [undefined, undefined, { fileName, error: "Invalid XML" }];
+  }
+  const tributaryFileContent: TributaryFile | undefined = parser.parse(
+    xml?.autorizacion?.comprobante?.__cdata,
+  ) as TributaryFile | undefined;
+
+  if (!tributaryFileContent) {
+    return [undefined, undefined, { fileName, error: "Invalid XML __cdata" }];
+  }
+  
+  if (!tributaryFileContent.factura && !tributaryFileContent.notaCredito) {
+    return [undefined, undefined, { fileName, error: "Invalid XML __cdata cannot found invoice or credit note field" }];
+  }
+  let invoiceFile: InvoiceFile | undefined = undefined;
+  let creditNoteFile: CreditNoteFile | undefined = undefined;
+  const invoiceContent: InvoiceXML | undefined = tributaryFileContent.factura;
+
+  if (invoiceContent) {
+    invoiceFile = {
+      fileName,
+      content: invoiceContent,
+    };
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+  const creditNoteContent = tributaryFileContent.notaCredito;
+
+  if (creditNoteContent) {
+    creditNoteFile = {
+      fileName,
+      content: creditNoteContent,
+    };
+  }
+
+  return [invoiceFile, creditNoteFile];
 };
+
+type XmlData = {
+  autorizacion: {
+    comprobante: {
+      __cdata: string;
+    };
+  };
+  [key: string]: unknown;
+};
+
+export interface TributaryFile {
+  factura?: InvoiceXML;
+  notaCredito?: CreditNoteXML;
+}
 
 export interface InvoiceFile {
   fileName: string;
   content: InvoiceXML;
 }
 
-export interface InvoiceXML {
-  infoTributaria: InfoTributaria;
-  infoFactura: InfoFactura;
-  detalles: Detalles;
-  infoAdicional: InfoAdicional;
+export interface CreditNoteFile {
+  fileName: string;
+  content: CreditNoteXML;
 }
 
-interface Detalles {
-  detalle: Detalle[];
-}
-
-export interface Detalle {
-  codigoPrincipal: number;
-  codigoAuxiliar: number;
-  descripcion: string;
-  cantidad: number;
-  precioUnitario: number;
-  descuento: number;
-  precioTotalSinImpuesto: number;
-  impuestos: Impuestos;
-}
-
-interface Impuestos {
-  impuesto: Impuesto [];
-}
-
-interface Impuesto {
-  codigo: number;
-  codigoPorcentaje: number;
-  tarifa: number;
-  baseImponible: number;
-  valor: number;
-}
-
-interface InfoAdicional {
-  campoAdicional: number[];
-}
-
-interface InfoFactura {
-  fechaEmision: string;
-  dirEstablecimiento: string;
-  contribuyenteEspecial: number;
-  obligadoContabilidad: string;
-  tipoIdentificacionComprador: string;
-  razonSocialComprador: string;
-  identificacionComprador: string;
-  totalSinImpuestos: number;
-  totalDescuento: number;
-  totalConImpuestos: TotalConImpuestos;
-  propina: number;
-  importeTotal: number;
-  moneda: string;
-  pagos: Pagos;
-}
-
-interface Pagos {
-  pago: Pago;
-}
-
-interface Pago {
-  formaPago: number;
-  total: number;
-  plazo: number;
-  unidadTiempo: string;
-}
-
-interface TotalConImpuestos {
-  totalImpuesto: TotalImpuesto[];
-}
-
-interface TotalImpuesto {
-  codigo: number;
-  codigoPorcentaje: number;
-  descuentoAdicional: number;
-  baseImponible: number;
-  valor: number;
-  valorDevolucionIva?: number;
-}
-
-interface InfoTributaria {
-  ambiente: number;
-  tipoEmision: number;
-  razonSocial: string;
-  nombreComercial: string;
-  ruc: number;
-  claveAcceso: string;
-  codDoc: string;
-  estab: string;
-  ptoEmi: number;
-  secuencial: string;
-  dirMatriz: string;
-}
-
-export { parseInvoice };
+export { parseTributaryFile, isRuc };

@@ -1,21 +1,30 @@
 "use client";
 import { Button } from "@/app/_components/ui/button";
 import { useEffect, useMemo, useState } from "react";
-import type { Detalle, InvoiceFile } from "@/lib/invoice.parser";
+import type { CreditNoteFile, InvoiceFile, ParseError } from "@/lib/invoice.parser";
 import { useFilePicker } from "use-file-picker";
-import { parseInvoice } from "@/lib/invoice.parser";
+import { parseTributaryFile } from "@/lib/invoice.parser";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/app/_components/ui/card";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/_components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/app/_components/ui/tooltip";
+import InvoicePreview from "@/app/_components/invoice-preview";
+import CreditNotePreview from "@/app/_components/creditnote-preview";
+import { type ImpuestosClass } from "@/lib/invoice.parser.types";
+import moment from "moment";
 
 const ImportPage: React.FC = () => {
   const [invoices, setInvoices] = useState<InvoiceFile[]>([]);
+  const [creditNotes, setCreditNotes] = useState<CreditNoteFile[]>([]);
+  const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
   const { openFilePicker, filesContent, loading } = useFilePicker({
     accept: ".xml",
     multiple: true,
@@ -25,9 +34,32 @@ const ImportPage: React.FC = () => {
 
   useEffect(() => {
     if (filesContent.length > 0) {
-      setInvoices(
-        filesContent.map((f) => parseInvoice(f.name, Buffer.from(f.content))),
+      const docs: [InvoiceFile[], CreditNoteFile[], ParseError[]] = filesContent.reduce(
+        (p, f) => {
+          const [invoice, creditnote, parseError] = parseTributaryFile(
+            f.name,
+            Buffer.from(f.content),
+          );
+          if (invoice) {
+            p[0].push(invoice);
+            return p;
+          }
+          if (creditnote) {
+            p[1].push(creditnote);
+            return p;
+          }
+          if (parseError) {
+            p[2].push(parseError);
+            return p;
+          }
+          p[2].push({ fileName: f.name, error: "Unknown error" });
+          return p;
+        },
+        [[], [], []] as [InvoiceFile[], CreditNoteFile[], ParseError[]],
       );
+      setInvoices(docs[0]);
+      setCreditNotes(docs[1]);
+      setParseErrors(docs[2]);
     }
   }, [filesContent]);
 
@@ -49,11 +81,54 @@ const ImportPage: React.FC = () => {
     );
   }, [invoices]);
 
+  const business1SInvoices = useMemo(() => {
+    return businessInvoices.filter((v) => {
+      const date = moment(v.content.infoFactura.fechaEmision, 'DD/MM/YYYY');
+      return date.get('month') <= 5;
+    });
+  }, [businessInvoices]);
+
+  const business2SInvoices = useMemo(() => {
+    return businessInvoices.filter((v) => {
+      const date = moment(v.content.infoFactura.fechaEmision, 'DD/MM/YYYY');
+      if (date.get('year') !== 2023) {
+        console.error("Invalid date", date, v.content.infoFactura.fechaEmision);
+      }
+      return date.get('month') > 5;
+    });
+  }, [businessInvoices]);
+
+  const businessCreditNotes = useMemo(() => {
+    return creditNotes.filter((v) =>
+      v.content.infoNotaCredito.identificacionComprador.endsWith("001"),
+    );
+  }, [creditNotes]);
+
+  const business1SCreditNotes = useMemo(() => {
+    return businessCreditNotes.filter((v) => {
+      const date = moment(v.content.infoNotaCredito.fechaEmision, 'DD/MM/YYYY');
+      return date.get('month') <= 5;
+    });
+  }, [businessCreditNotes]);
+
+  const business2SCreditNotes = useMemo(() => {
+    return businessCreditNotes.filter((v) => {
+      const date = moment(v.content.infoNotaCredito.fechaEmision, 'DD/MM/YYYY');
+      return date.get('month') > 5;
+    });
+  }, [businessCreditNotes]);
+
   const personalInvoices = useMemo(() => {
     return invoices.filter(
       (v) => !v.content.infoFactura.identificacionComprador.endsWith("001"),
     );
   }, [invoices]);
+
+  const personalCreditNotes = useMemo(() => {
+    return creditNotes.filter(
+      (v) => !v.content.infoNotaCredito.identificacionComprador.endsWith("001"),
+    );
+  }, [creditNotes]);
 
   const invoicesTotal = useMemo(() => {
     return invoices.reduce((p, c) => {
@@ -76,8 +151,17 @@ const ImportPage: React.FC = () => {
           }, [] as number[]),
         ];
       }, [] as number[])
-      .filter((v, i, a) => a.indexOf(v) === i);
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .sort();
   }, [invoices]);
+
+  const reasonTypes = useMemo(() => {
+    return creditNotes
+      .reduce((p, c) => {
+        return [...p, c.content.infoNotaCredito.motivo];
+      }, [] as string[])
+      .filter((v, i, a) => a.indexOf(v) === i);
+  }, [creditNotes]);
 
   return (
     <>
@@ -91,6 +175,19 @@ const ImportPage: React.FC = () => {
             <Button>Import</Button>
           </div>
         </section>
+        {parseErrors && <section>
+          <h3 className="text-2xl font-bold tracking-tight">Errors</h3>
+          <ul>
+            {parseErrors.map((error, index) => (
+              <li key={index}>
+                <h4 className="text-xl font-bold tracking-tight">
+                  {error.fileName}
+                </h4>
+                <p>{error.error}</p>
+              </li>
+            ))}
+          </ul>
+        </section>}
         <section className="grid grid-cols-2 gap-2">
           <Card>
             <CardHeader>
@@ -103,7 +200,7 @@ const ImportPage: React.FC = () => {
               <div className="grid grid-cols-3 gap-1">
                 <div className="flex flex-col text-center">
                   <h5 className="text-xl font-bold tracking-tight">
-                    {invoices.length}
+                    {invoices.length + creditNotes.length}
                   </h5>
                   <p className="text-xs font-medium">files imported</p>
                 </div>
@@ -274,60 +371,296 @@ const ImportPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
-        </section>
-        <section className="grid grid-cols-2 gap-4">
-          {invoices.map((file, index) => (
-            <Card key={index} className="flex flex-col">
-              <CardHeader>
-                <CardTitle>
-                  {file.content.infoFactura.razonSocialComprador}
-                </CardTitle>
-                <CardDescription>
-                  {file.fileName}
-                  <br />
-                  {file.content.infoTributaria.estab}-
-                  {file.content.infoTributaria.ptoEmi}-
-                  {file.content.infoTributaria.secuencial}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow text-xs">
-                {file.content.detalles.detalle.length ? (
-                  file.content.detalles.detalle
-                    .slice(0, 2)
-                    .map((detalle, index) => (
-                      <div key={index} className="flex justify-between gap-4">
-                        <p>{detalle.descripcion}</p>
-                        {detalle.impuestos.impuesto.map((v) => (
-                          <p key={v.codigo}>
-                            {v.tarifa}%<strong>({v.codigo})</strong>
-                            {USDollar.format(v.valor)}
-                          </p>
-                        ))}
-                        <p>{USDollar.format(detalle.precioTotalSinImpuesto)}</p>
-                        <p>
+          <Card>
+            <CardHeader>
+              <CardTitle>Semesters (Business)</CardTitle>
+              <CardDescription>Subtotals invoices ({businessInvoices.length})</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-1">
+                <div className="flex flex-col text-center">
+                  <h5 className="text-xl font-bold tracking-tight">
+                    {USDollar.format(
+                      business1SInvoices.reduce((p, c) => {
+                        return (
+                          p +
+                          c.content.detalles.detalle.reduce((p, c) => {
+                            return (
+                              p +
+                              c.impuestos.impuesto.reduce((p, c) => {
+                                return p + c.baseImponible;
+                              }, 0)
+                            );
+                          }, 0)
+                        );
+                      }, 0),
+                    )}
+                  </h5>
+                  <p className="text-xs font-medium">1st semester({business1SInvoices.length})</p>
+                </div>
+                <div className="flex flex-col text-center">
+                  <h5 className="text-xl font-bold tracking-tight">
+                    {USDollar.format(
+                      business2SInvoices.reduce((p, c) => {
+                        return (
+                          p +
+                          c.content.detalles.detalle.reduce((p, c) => {
+                            return (
+                              p +
+                              c.impuestos.impuesto.reduce((p, c) => {
+                                return p + c.baseImponible;
+                              }, 0)
+                            );
+                          }, 0)
+                        );
+                      }, 0),
+                    )}
+                  </h5>
+                  <p className="text-xs font-medium">2nd semester({business2SInvoices.length})</p>
+                </div>
+                <div className="flex flex-col text-center">
+                  <h5 className="text-xl font-bold tracking-tight">
+                    {USDollar.format(
+                      businessInvoices.reduce((p, c) => {
+                        return (
+                          p +
+                          c.content.detalles.detalle.reduce((p, c) => {
+                            return (
+                              p +
+                              c.impuestos.impuesto.reduce((p, c) => {
+                                return p + c.baseImponible;
+                              }, 0)
+                            );
+                          }, 0)
+                        );
+                      }, 0),
+                    )}
+                  </h5>
+                  <p className="text-xs font-medium">Total subtotal</p>
+                </div>
+                {taxesTypes.map((tax, index) => (
+                  <div key={index} className="flex flex-col text-center">
+                    <h5 className="text-xl font-bold tracking-tight">
+                      <Tooltip>
+                        <TooltipContent>1st semester</TooltipContent>
+                        <TooltipTrigger>
                           {USDollar.format(
-                            detalle.precioTotalSinImpuesto +
-                              detalle.impuestos.impuesto.reduce(
-                                (p, c) => p + c.valor,
-                                0,
-                              ),
+                            business1SInvoices.reduce(
+                              (p, c) =>
+                                p +
+                                c.content.detalles.detalle.reduce(
+                                  (p, c) =>
+                                    p +
+                                    c.impuestos.impuesto
+                                      .filter((v) => v.tarifa === tax)
+                                      .reduce((p, c) => p + c.baseImponible, 0),
+                                  0,
+                                ),
+                              0,
+                            ),
                           )}
-                        </p>
-                      </div>
-                    ))
-                ) : (
-                  <div className="flex justify-between gap-4">
-                    <p>Sin items</p>
-                    <p></p>
+                        </TooltipTrigger>
+                      </Tooltip>
+                      /
+                      <Tooltip>
+                        <TooltipContent>2nd semester</TooltipContent>
+                        <TooltipTrigger>
+                          {USDollar.format(
+                            business2SInvoices.reduce(
+                              (p, c) =>
+                                p +
+                                c.content.detalles.detalle.reduce(
+                                  (p, c) =>
+                                    p +
+                                    c.impuestos.impuesto
+                                      .filter((v) => v.tarifa === tax)
+                                      .reduce((p, c) => p + c.baseImponible, 0),
+                                  0,
+                                ),
+                              0,
+                            ),
+                          )}
+                        </TooltipTrigger>
+                      </Tooltip>
+                    </h5>
+                    <p className="text-xs font-medium">{tax}%</p>
                   </div>
-                )}
-              </CardContent>
-              <CardFooter>
-                <p className="text-xs font-medium">
-                  {file.content.infoFactura.fechaEmision}
-                </p>
-              </CardFooter>
-            </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Semesters (Business)</CardTitle>
+              <CardDescription>Subtotals credit notes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-1">
+                <div className="flex flex-col text-center">
+                  <h5 className="text-xl font-bold tracking-tight">
+                    {USDollar.format(
+                      business1SCreditNotes.reduce((p, c) => {
+                        return (
+                          p +
+                          c.content.detalles.detalle.reduce((p, c) => {
+                            if (!(c.impuestos as string[]).length) {
+                              return (
+                                p +
+                                (c.impuestos as ImpuestosClass).impuesto.reduce(
+                                  (p, c) => {
+                                    return p + c.baseImponible;
+                                  },
+                                  0,
+                                )
+                              );
+                            }
+                            return p;
+                          }, 0)
+                        );
+                      }, 0),
+                    )}
+                  </h5>
+                  <p className="text-xs font-medium">1st semester</p>
+                </div>
+                <div className="flex flex-col text-center">
+                  <h5 className="text-xl font-bold tracking-tight">
+                    {USDollar.format(
+                      business2SCreditNotes.reduce((p, c) => {
+                        return (
+                          p +
+                          c.content.detalles.detalle.reduce((p, c) => {
+                            if (!(c.impuestos as string[]).length) {
+                              return (
+                                p +
+                                (c.impuestos as ImpuestosClass).impuesto.reduce(
+                                  (p, c) => {
+                                    return p + c.baseImponible;
+                                  },
+                                  0,
+                                )
+                              );
+                            }
+                            return p;
+                          }, 0)
+                        );
+                      }, 0),
+                    )}
+                  </h5>
+                  <p className="text-xs font-medium">2nd semester</p>
+                </div>
+                <div className="flex flex-col text-center">
+                  <h5 className="text-xl font-bold tracking-tight">
+                    {USDollar.format(
+                      businessCreditNotes.reduce((p, c) => {
+                        return (
+                          p +
+                          c.content.detalles.detalle.reduce((p, c) => {
+                            if (!(c.impuestos as string[]).length) {
+                              return (
+                                p +
+                                (c.impuestos as ImpuestosClass).impuesto.reduce(
+                                  (p, c) => {
+                                    return p + c.baseImponible;
+                                  },
+                                  0,
+                                )
+                              );
+                            }
+                            return p;
+                          }, 0)
+                        );
+                      }, 0),
+                    )}
+                  </h5>
+                  <p className="text-xs font-medium">Total subtotal</p>
+                </div>
+                {taxesTypes.map((tax, index) => (
+                  <div key={index} className="flex flex-col text-center">
+                    <h5 className="text-xl font-bold tracking-tight">
+                      <Tooltip>
+                        <TooltipContent>1st semester</TooltipContent>
+                        <TooltipTrigger>
+                          {USDollar.format(
+                            business1SCreditNotes.reduce((p, c) => {
+                              return (
+                                p +
+                                c.content.detalles.detalle.reduce((p, c) => {
+                                  if (!(c.impuestos as string[]).length) {
+                                    return (
+                                      p +
+                                      (c.impuestos as ImpuestosClass).impuesto
+                                        .filter((v) => v.tarifa === tax)
+                                        .reduce((p, c) => {
+                                          return p + c.baseImponible;
+                                        }, 0)
+                                    );
+                                  }
+                                  return p;
+                                }, 0)
+                              );
+                            }, 0),
+                          )}
+                        </TooltipTrigger>
+                      </Tooltip>
+                      /
+                      <Tooltip>
+                        <TooltipContent>2nd semester</TooltipContent>
+                        <TooltipTrigger>
+                          {USDollar.format(
+                            business2SCreditNotes.reduce((p, c) => {
+                              return (
+                                p +
+                                c.content.detalles.detalle.reduce((p, c) => {
+                                  if (!(c.impuestos as string[]).length) {
+                                    return (
+                                      p +
+                                      (c.impuestos as ImpuestosClass).impuesto
+                                        .filter((v) => v.tarifa === tax)
+                                        .reduce((p, c) => {
+                                          return p + c.baseImponible;
+                                        }, 0)
+                                    );
+                                  }
+                                  return p;
+                                }, 0)
+                              );
+                            }, 0),
+                          )}
+                        </TooltipTrigger>
+                      </Tooltip>
+                    </h5>
+                    <p className="text-xs font-medium">{tax}%</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+        <h3 className="text-2xl font-bold tracking-tight">Credit notes</h3>
+        <h4 className="text-1xl font-bold tracking-tight">1st Semester</h4>
+        <section className="grid grid-cols-4 gap-2">
+          {business1SCreditNotes.map((creditNote, index) => (
+            <CreditNotePreview
+              taxesTypes={taxesTypes}
+              creditNote={creditNote}
+              key={index}
+            />
+          ))}
+        </section>
+        <h4 className="text-1xl font-bold tracking-tight">2nd Semester</h4>
+        <section className="grid grid-cols-4 gap-2">
+          {business2SCreditNotes.map((creditNote, index) => (
+            <CreditNotePreview
+              taxesTypes={taxesTypes}
+              creditNote={creditNote}
+              key={index}
+            />
+          ))}
+        </section>
+        <h3 className="text-2xl font-bold tracking-tight">Invoices</h3>
+        <section className="grid grid-cols-4 gap-2">
+          {invoices.map((file, index) => (
+            <InvoicePreview invoice={file} key={index} />
           ))}
         </section>
       </main>
