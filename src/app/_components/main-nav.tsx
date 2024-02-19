@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
 import { logger } from '@/lib/log';
+import { type UrlObject } from 'url';
+import { type Route } from 'next';
 
-const routes: { name: string; href: string }[] = [
+const routes: { name: string; href: UrlObject | string }[] = [
   { name: 'Overview', href: '/dashboard' },
   { name: 'Invoices', href: '/invoices' },
   { name: 'Customers', href: '/customers' },
@@ -26,7 +28,7 @@ export function MainNav({
     >
       {routes.map((el) => (
         <Link
-          href={el.href}
+          href={el.href as Route}
           className={
             pathname === el.href
               ? 'text-sm font-medium transition-colors hover:text-primary'
