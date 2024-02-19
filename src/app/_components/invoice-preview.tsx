@@ -4,7 +4,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardContent,
   CardFooter,
 } from "@/app/_components/ui/card";
 import { Badge } from "@/app/_components/ui/badge";
@@ -14,10 +13,6 @@ type InvoicePreviewProps = {
 };
 
 const InvoicePreview: React.FC<InvoicePreviewProps> = ({ invoice }) => {
-  const USDollar = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  });
   return (
     <Card className="flex flex-col">
       <CardHeader>

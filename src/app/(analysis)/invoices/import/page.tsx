@@ -117,11 +117,11 @@ const ImportPage: React.FC = () => {
     );
   }, [invoices]);
 
-  const personalCreditNotes = useMemo(() => {
-    return creditNotes.filter(
-      (v) => !v.content.infoNotaCredito.identificacionComprador.endsWith("001"),
-    );
-  }, [creditNotes]);
+  // const personalCreditNotes = useMemo(() => {
+  //   return creditNotes.filter(
+  //     (v) => !v.content.infoNotaCredito.identificacionComprador.endsWith("001"),
+  //   );
+  // }, [creditNotes]);
 
   const invoicesTotal = useMemo(() => {
     return invoices.reduce((p, c) => {
@@ -158,16 +158,16 @@ const ImportPage: React.FC = () => {
         ];
       }, [] as number[])
       .filter((v, i, a) => a.indexOf(v) === i)
-      .sort();
+      .sort((a, b) => a - b);
   }, [invoices]);
 
-  const reasonTypes = useMemo(() => {
-    return creditNotes
-      .reduce((p, c) => {
-        return [...p, c.content.infoNotaCredito.motivo];
-      }, [] as string[])
-      .filter((v, i, a) => a.indexOf(v) === i);
-  }, [creditNotes]);
+  // const reasonTypes = useMemo(() => {
+  //   return creditNotes
+  //     .reduce((p, c) => {
+  //       return [...p, c.content.infoNotaCredito.motivo];
+  //     }, [] as string[])
+  //     .filter((v, i, a) => a.indexOf(v) === i);
+  // }, [creditNotes]);
 
   const getInvoiceTaxTotal = (invoice: InvoiceFile, tax: number): number => {
     return invoice.content.detalles.detalle.reduce((p, c) => p +

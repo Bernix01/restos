@@ -4,8 +4,7 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
-  CardContent,
+  CardFooter
 } from "@/app/_components/ui/card";
 import { Badge } from "@/app/_components/ui/badge";
 import { type ImpuestosClass } from "@/lib/invoice.parser.types";
@@ -55,7 +54,7 @@ const CreditNotePreview: React.FC<CreditNotePreviewProps> = ({
       <CardFooter className="space-x-2">
         {taxesTypes.map((tax, index) => (
           <Badge
-            variant={variants[Math.min(variants.length - 1, index)]}
+            variant={variants[Math.min(variants.length - 1, index)] as "default" | "secondary" | "destructive" | "outline"}
             key={tax}
           >
             {USDollar.format(

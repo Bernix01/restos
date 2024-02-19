@@ -20,7 +20,7 @@ const UserNav: React.FC = async () => {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={session?.user?.image ?? ''} alt="@shadcn" />
+            <AvatarImage src={session?.user?.image ?? ''} alt="@user" />
             <AvatarFallback>
               {(session?.user?.name ?? 'U')[0]?.toLocaleUpperCase()}
             </AvatarFallback>
