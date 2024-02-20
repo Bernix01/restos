@@ -10,8 +10,8 @@ export const env = createEnv({
     AUTH_GITHUB_ID: z.string(),
     AUTH_GITHUB_SECRET: z.string(),
     AUTH_SECRET: z.string(),
-    DATABASE_URL: z.string().url().refine((str) => !str.includes("YOUR_MYSQL_URL_HERE"),"You forgot to change the default URL",),
-    DATABASE_URL_DIRECT: z.string().url().refine((str) => !str.includes("YOUR_MYSQL_URL_HERE"),"You forgot to change the default URL",),
+    DATABASE_URL: z.string().refine((str) => !str.includes("YOUR_MYSQL_URL_HERE"),"You forgot to change the default URL",),
+    DATABASE_URL_DIRECT: z.string().refine((str) => !str.includes("YOUR_MYSQL_URL_HERE"),"You forgot to change the default URL",),
     NEXTAUTH_URL: z.preprocess(
       // This makes Vercel deployments not fail if you don't set NEXTAUTH_URL
       // Since NextAuth.js automatically uses the VERCEL_URL if present.
