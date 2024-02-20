@@ -23,8 +23,13 @@ export const invoiceRouter = createTRPCRouter({
 
       return ctx.db.invoice.create({
         data: {
-          name: input.name,
+          invoiceNumber: input.name,
           createdBy: { connect: { id: ctx.session.user.id } },
+          invoiceDate : new Date(),
+          totalAmount: 100,
+          subtotalAmount: 90,
+          totalTax: 10,
+          isRUC: false,
         },
       });
     }),
