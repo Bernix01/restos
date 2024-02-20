@@ -62,7 +62,7 @@ const parseTributaryFile = (
   if (!tributaryFileContent) {
     return [undefined, undefined, { fileName, error: "Invalid XML __cdata" }];
   }
-  
+
   if (!tributaryFileContent.factura && !tributaryFileContent.notaCredito) {
     return [undefined, undefined, { fileName, error: "Invalid XML __cdata cannot found invoice or credit note field" }];
   }
@@ -113,4 +113,14 @@ export interface CreditNoteFile {
   content: CreditNoteXML;
 }
 
-export { parseTributaryFile, isRuc };
+const getInvoiceTaxTotal = (invoice: InvoiceFile, tax: number): number => {
+  return invoice.content.detalles.detalle.reduce((p, c) => p +
+    c.impuestos.impuesto
+      .filter((v) => v.tarifa === tax)
+      .reduce((p2, c2) => p2 + c2.baseImponible, 0),
+    0,
+  );
+}
+
+
+export { parseTributaryFile, isRuc, getInvoiceTaxTotal };

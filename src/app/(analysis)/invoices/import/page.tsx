@@ -3,7 +3,7 @@ import { Button } from "@/app/_components/ui/button";
 import { useEffect, useMemo, useState } from "react";
 import type { CreditNoteFile, InvoiceFile, ParseError } from "@/lib/invoice.parser";
 import { useFilePicker } from "use-file-picker";
-import { parseTributaryFile } from "@/lib/invoice.parser";
+import { getInvoiceTaxTotal, parseTributaryFile } from "@/lib/invoice.parser";
 import {
   Card,
   CardContent,
@@ -20,6 +20,7 @@ import InvoicePreview from "@/app/_components/invoice-preview";
 import CreditNotePreview from "@/app/_components/creditnote-preview";
 import { type ImpuestosClass } from "@/lib/invoice.parser.types";
 import moment from "moment";
+import ExpensesGraph from "@/app/_components/expenses-graph";
 
 const ImportPage: React.FC = () => {
   const [invoices, setInvoices] = useState<InvoiceFile[]>([]);
@@ -84,7 +85,7 @@ const ImportPage: React.FC = () => {
   const business2SInvoices = useMemo(() => {
     return businessInvoices.filter((v) => {
       const date = moment(v.content.infoFactura.fechaEmision, 'DD/MM/YYYY');
-      if (date.get('year') !== 2023) {
+      if (date.get('year') <= 2020) {
         console.error("Invalid date", date, v.content.infoFactura.fechaEmision);
       }
       return date.get('month') > 5;
@@ -169,14 +170,6 @@ const ImportPage: React.FC = () => {
   //     .filter((v, i, a) => a.indexOf(v) === i);
   // }, [creditNotes]);
 
-  const getInvoiceTaxTotal = (invoice: InvoiceFile, tax: number): number => {
-    return invoice.content.detalles.detalle.reduce((p, c) => p +
-      c.impuestos.impuesto
-        .filter((v) => v.tarifa === tax)
-        .reduce((p2, c2) => p2 + c2.baseImponible, 0),
-      0,
-    );
-  }
 
   return (
     <main className="flex-1 space-y-4 p-8 pt-6">
@@ -186,10 +179,9 @@ const ImportPage: React.FC = () => {
           <Button onClick={openFilePicker} disabled={loading}>
             Load Files
           </Button>
-          <Button>Import</Button>
         </div>
       </section>
-      {parseErrors && <section>
+      {parseErrors.length > 0 ? <section>
         <h3 className="text-2xl font-bold tracking-tight">Errors</h3>
         <ul>
           {parseErrors.map((error, index) => (
@@ -201,7 +193,7 @@ const ImportPage: React.FC = () => {
             </li>
           ))}
         </ul>
-      </section>}
+      </section> : null}
       <section className="grid grid-cols-2 gap-2">
         <Card>
           <CardHeader>
@@ -621,6 +613,9 @@ const ImportPage: React.FC = () => {
           </CardContent>
         </Card>
       </section>
+
+      <h3 className="text-2xl font-bold tracking-tight">Expenses (Business)</h3>
+      <ExpensesGraph invoices={businessInvoices} taxesType={taxesTypes} />
       <h3 className="text-2xl font-bold tracking-tight">Credit notes</h3>
       <h4 className="text-1xl font-bold tracking-tight">1st Semester</h4>
       <section className="grid grid-cols-4 gap-2">
@@ -631,6 +626,7 @@ const ImportPage: React.FC = () => {
             key={index}
           />
         ))}
+        {!business1SCreditNotes.length && (<p>No credit notes found</p>)}
       </section>
       <h4 className="text-1xl font-bold tracking-tight">2nd Semester</h4>
       <section className="grid grid-cols-4 gap-2">
@@ -641,11 +637,12 @@ const ImportPage: React.FC = () => {
             key={creditNote.fileName}
           />
         ))}
+        {!business2SCreditNotes.length && (<p>No credit notes found</p>)}
       </section>
       <h3 className="text-2xl font-bold tracking-tight">Invoices</h3>
       <section className="grid grid-cols-4 gap-2">
         {invoices.map((file) => (
-          <InvoicePreview invoice={file} key={file.fileName} />
+          <InvoicePreview invoice={file} key={file.fileName} taxesTypes={taxesTypes} />
         ))}
       </section>
     </main>
