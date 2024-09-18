@@ -69,8 +69,12 @@ const parseTributaryFile = (
   let invoiceFile: InvoiceFile | undefined = undefined;
   let creditNoteFile: CreditNoteFile | undefined = undefined;
   const invoiceContent: InvoiceXML | undefined = tributaryFileContent.factura;
-
   if (invoiceContent) {
+    const month = parseInt(invoiceContent?.infoFactura.fechaEmision?.split("/")[1] ?? "-1");
+    const fileMonth = parseInt(fileName.split("-")[0] ?? "-1");
+    if (month === -1 || fileMonth === -1 || month !== fileMonth + 1) {
+      return [undefined, undefined, { fileName, error: `Invalid month ${month} in XML` }];
+    }
     invoiceFile = {
       fileName,
       content: invoiceContent,
